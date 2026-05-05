@@ -261,6 +261,30 @@ canvas { display: block; }
 
 <script>
 // ═══════════════════════════════════════════════════════════
+// AUDIO MANAGER
+// ═══════════════════════════════════════════════════════════
+const SoundMgr = {
+  sounds: {
+    menu: new Audio('assets/Tetris (GB) (17)-menu_sound.wav'),
+    move: new Audio('assets/Tetris (GB) (18)-move_piece.wav'),
+    rotate: new Audio('assets/Tetris (GB) (19)-rotate_piece.wav'),
+    lineClear: new Audio('assets/Tetris (GB) (21)-line_clear.wav'),
+    tetris: new Audio('assets/Tetris (GB) (22)-tetris_4_lines.wav'),
+    levelUp: new Audio('assets/Tetris (GB) (23)-level_up_jingle (V1.1).wav'),
+    gameOver: new Audio('assets/Tetris (GB) (25)-game_over.wav'),
+    landed: new Audio('assets/Tetris (GB) (27)-piece_landed.wav'),
+  },
+  
+  play(key) {
+    const sound = this.sounds[key];
+    if (sound) {
+      sound.currentTime = 0;
+      sound.play().catch(() => {});
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
 // THEMES  (bg + fg pairs — diagonal swatch shows both)
 // ═══════════════════════════════════════════════════════════
 const THEMES = [
@@ -554,13 +578,18 @@ function init(){
   dropInterval=800;dropCounter=0;
   clearRows=[];bounceMap={};waitClear=false;
   cur=mkPiece();nxt=mkPiece();
+  SoundMgr.play('menu');
   updateHUD();hideOv();
 }
 
 function spawn(){
   cur={...nxt,c:nxt.c.map(([x,y])=>[x,y])};
   cur.x=Math.floor((COLS-cur.w)/2);cur.y=0;nxt=mkPiece();
-  if(collides(cur,board)){gameOver=true;showOv('GAME OVER','SPACE or R to restart');}
+  if(collides(cur,board)){
+    gameOver=true;
+    SoundMgr.play('gameOver');
+    showOv('GAME OVER','SPACE or R to restart');
+  }
 }
 
 function finalizeClear(){
@@ -568,7 +597,22 @@ function finalizeClear(){
   if(n>0){
     const pts=[0,100,300,500,800];
     score+=(pts[Math.min(n,4)])*level;
-    lines+=n;level=Math.floor(lines/10)+1;
+    lines+=n;
+    const oldLevel=level;
+    level=Math.floor(lines/10)+1;
+    
+    // Play line clear or tetris sound
+    if(n===4) {
+      SoundMgr.play('tetris');
+    } else {
+      SoundMgr.play('lineClear');
+    }
+    
+    // Play level up if level increased
+    if(level>oldLevel) {
+      setTimeout(() => SoundMgr.play('levelUp'), 200);
+    }
+    
     dropInterval=Math.max(80,800-(level-1)*70);
   }
   clearRows=[];waitClear=false;
@@ -581,6 +625,7 @@ function drop(){
   if(!collides(cur,board,0,1)){cur.y++;}
   else{
     lockPiece();
+    SoundMgr.play('landed');
     const full=findFull();
     if(full.length>0){
       clearRows=full.map(r=>({row:r,prog:0}));
@@ -747,10 +792,29 @@ document.addEventListener('keydown',e=>{
     return;
   }
   if(paused||waitClear)return;
-  if(e.code==='ArrowLeft') { e.preventDefault(); if(!collides(cur,board,-1,0))cur.x--; }
-  if(e.code==='ArrowRight'){ e.preventDefault(); if(!collides(cur,board, 1,0))cur.x++; }
+  if(e.code==='ArrowLeft') { 
+    e.preventDefault(); 
+    if(!collides(cur,board,-1,0)){
+      cur.x--; 
+      SoundMgr.play('move');
+    }
+  }
+  if(e.code==='ArrowRight'){ 
+    e.preventDefault(); 
+    if(!collides(cur,board, 1,0)){
+      cur.x++; 
+      SoundMgr.play('move');
+    }
+  }
   if(e.code==='ArrowDown') { e.preventDefault(); drop(); }
-  if(e.code==='ArrowUp')   { e.preventDefault(); const r=rotatePiece(cur); if(!collides(r,board))Object.assign(cur,r); }
+  if(e.code==='ArrowUp')   { 
+    e.preventDefault(); 
+    const r=rotatePiece(cur); 
+    if(!collides(r,board)){
+      Object.assign(cur,r); 
+      SoundMgr.play('rotate');
+    }
+  }
 });
 
 // ═══════════════════════════════════════════════════════════
